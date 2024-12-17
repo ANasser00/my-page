@@ -33,7 +33,7 @@ export interface XPView {
 
 export interface UserData {
   user: UserInfo;
-  xp_view: XPView[];
+  transaction: XPView[];
   progress: Progress[];
 }
 
@@ -51,12 +51,20 @@ const USER_QUERY = `
     totalDown   
     createdAt   
   }
-    xp_view (where:{event:{id:{_eq:20}}}) {
-      userId
-      amount
-      path
-      __typename
-    }
+  
+     transaction(
+         where: {
+           type: { _eq: "xp" }
+           event: { path: { _eq: "/bahrain/bh-module" } }
+        }
+      order_by: { createdAt: asc }
+      ) {
+        amount
+        createdAt 
+        }
+
+
+
    progress (where:{object:{type:{_eq:"project"}}}) {
       id
       grade

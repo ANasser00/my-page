@@ -1,20 +1,16 @@
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/router";
 import { getUserData, UserData } from "../graphql/queries/getUserData";
+import dynamic from 'next/dynamic';
+
+
 
 // SVG Graph Components
-const XPProgressGraph = ({ data }: { data?: UserData['xp_view'] }) => {
+const XPProgressGraph = ({ data }: { data?: UserData['transaction'] }) => {
   const [timeRange, setTimeRange] = useState('6m');
-  const isDark = true;
 
-  if (!data) {
+  if (!data || !Array.isArray(data) || data.length === 0) {
     console.log('No XP data available');
-    return null;
-  }
-
-  const xpData = Array.isArray(data) ? data : [];
-  if (xpData.length === 0) {
-    console.log('XP data is empty');
     return null;
   }
 
@@ -25,31 +21,103 @@ const XPProgressGraph = ({ data }: { data?: UserData['xp_view'] }) => {
       '1m': 30,
       '3m': 90,
       '6m': 180,
-      '1y': 365
+      '1y': 365,
     };
     const daysToShow = ranges[range as keyof typeof ranges] || 180;
     const cutoffDate = new Date(now.setDate(now.getDate() - daysToShow));
     return data.filter(item => new Date(item.createdAt) >= cutoffDate);
   };
 
-  const filteredData = filterDataByTimeRange(xpData, timeRange);
-  const maxXP = Math.max(...filteredData.map(item => item.amount));
+  const filteredData = filterDataByTimeRange(data, timeRange);
+
+  const chartData = filteredData.map(item => ({
+    x: new Date(item.createdAt).toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+    }),
+    y: item.amount,
+  }));
+
+  const maxXP = Math.max(...filteredData.map(item => item.amount)) || 0;
   const totalXP = filteredData[filteredData.length - 1]?.amount || 0;
-  const width = 600;
-  const height = 300;
-  const padding = 40;
 
-  // Calculate points for the line
-  const points = filteredData.map((item, index) => {
-    const x = padding + (index * (width - 2 * padding)) / (filteredData.length - 1);
-    const y = height - padding - ((item.amount / maxXP) * (height - 2 * padding));
-    return { x, y, amount: item.amount, date: new Date(item.createdAt) };
-  });
-
-  // Create the line path
-  const linePath = points.map((point, index) => 
-    (index === 0 ? 'M' : 'L') + `${point.x},${point.y}`
-  ).join(' ');
+  const chartOptions = {
+    chart: {
+      type: 'line',
+      toolbar: {
+        show: false,
+      },
+      zoom: {
+        enabled: false,
+      },
+    },
+    stroke: {
+      curve: 'smooth',
+      width: 2,
+    },
+    markers: {
+      size: 6, // Size of the hover dots
+      colors: ['#A78BFA'], // Color of the dots
+      strokeColors: '#8B5CF6', // Outline color of the dots
+      strokeWidth: 2,
+      hover: {
+        size: 8, // Dot size when hovered
+      },
+    },
+    colors: ['#A78BFA'],
+    xaxis: {
+      type: 'category',
+      categories: chartData.map(dataPoint => dataPoint.x),
+      labels: {
+        style: {
+          colors: '#A0AEC0',
+        },
+      },
+    },
+    yaxis: {
+      labels: {
+        style: {
+          colors: '#A0AEC0',
+        },
+      },
+    },
+    tooltip: {
+      enabled: true, // Enable tooltips
+      theme: 'dark', // Dark theme for tooltips
+      style: {
+        fontSize: '12px',
+        fontFamily: 'Arial, sans-serif',
+        color: '#ffffff',
+      },
+      x: {
+        show: true,
+        format: 'MMM dd', // Format for x-axis values in tooltips
+      },
+      y: {
+        formatter: (value: number) => `${value} XP`, // Customize y-axis tooltip values
+      },
+      marker: {
+        show: true, // Show marker dots in tooltips
+      },
+    },
+    grid: {
+      borderColor: '#2D3748',
+      strokeDashArray: 4,
+    },
+    dataLabels: {
+      enabled: false,
+    },
+    title: {
+      text: `Total XP: ${totalXP}`,
+      align: 'left',
+      style: {
+        color: '#A0AEC0',
+        fontSize: '14px',
+      },
+    },
+  };
+  
+  
 
   return (
     <div className="bg-gray-800 p-6 rounded-lg shadow-lg">
@@ -59,7 +127,7 @@ const XPProgressGraph = ({ data }: { data?: UserData['xp_view'] }) => {
           <span className="text-sm text-gray-400">XP growth per day for the</span>
           <select
             value={timeRange}
-            onChange={(e) => setTimeRange(e.target.value)}
+            onChange={e => setTimeRange(e.target.value)}
             className="bg-gray-700 text-white text-sm rounded-md px-2 py-1 border-none focus:ring-2 focus:ring-blue-500"
           >
             <option value="1m">last month</option>
@@ -70,306 +138,82 @@ const XPProgressGraph = ({ data }: { data?: UserData['xp_view'] }) => {
         </div>
       </div>
 
-      <div className="relative">
-        <svg width={width} height={height} className="w-full h-auto">
-          <defs>
-            <linearGradient id="lineGradient" x1="0" y1="0" x2="1" y2="0">
-              <stop offset="0%" stopColor="#A78BFA" />
-              <stop offset="100%" stopColor="#8B5CF6" />
-            </linearGradient>
-          </defs>
+      <ReactApexChart
+        options={chartOptions} as ApexOptions
+        series={[{ name: 'XP', data: chartData.map(dataPoint => dataPoint.y) }]}
+        type="line"
+        height={400}
+/>
 
-          {/* Grid lines */}
-          {[...Array(5)].map((_, i) => {
-            const y = padding + (i * (height - 2 * padding) / 4);
-            return (
-              <line
-                key={`grid-${i}`}
-                x1={padding}
-                y1={y}
-                x2={width - padding}
-                y2={y}
-                stroke="#374151"
-                strokeWidth="1"
-                strokeDasharray="4 4"
-              />
-            );
-          })}
-
-          {/* Line path */}
-          <path
-            d={linePath}
-            fill="none"
-            stroke="url(#lineGradient)"
-            strokeWidth="2"
-            className="transition-all duration-1000"
-          >
-            <animate
-              attributeName="stroke-dasharray"
-              from={`${width * 2} ${width * 2}`}
-              to={`${width * 2} 0`}
-              dur="1.5s"
-              fill="freeze"
-            />
-          </path>
-
-          {/* Data points */}
-          {points.map((point, index) => (
-            <g key={`point-${index}`}>
-              <circle
-                cx={point.x}
-                cy={point.y}
-                r="3"
-                fill="#8B5CF6"
-                className="transition-all duration-300"
-              >
-                <title>
-                  {`${point.amount.toLocaleString()} XP\n${point.date.toLocaleDateString()}`}
-                </title>
-              </circle>
-            </g>
-          ))}
-
-          {/* X-axis labels */}
-          {points.filter((_, i) => i % Math.ceil(points.length / 6) === 0).map((point, i) => (
-            <text
-              key={`label-${i}`}
-              x={point.x}
-              y={height - padding + 20}
-              textAnchor="middle"
-              className="text-xs fill-gray-400"
-            >
-              {point.date.toLocaleDateString('default', { month: 'short', day: 'numeric' })}
-            </text>
-          ))}
-
-          {/* Y-axis labels */}
-          {[...Array(5)].map((_, i) => {
-            const value = maxXP * (1 - i / 4);
-            return (
-              <text
-                key={`y-label-${i}`}
-                x={padding - 10}
-                y={padding + (i * (height - 2 * padding) / 4)}
-                textAnchor="end"
-                alignmentBaseline="middle"
-                className="text-xs fill-gray-400"
-              >
-                {Math.round(value).toLocaleString()}
-              </text>
-            );
-          })}
-        </svg>
-
-        {/* Legend */}
-        <div className="mt-4 flex items-center space-x-4">
-          <div className="flex items-center">
-            <div className="w-3 h-0.5 bg-purple-500 mr-2"></div>
-            <span className="text-sm text-gray-400">Your XP</span>
-          </div>
-          <div className="flex items-center">
-            <div className="w-3 h-0.5 bg-gray-500 mr-2"></div>
-            <span className="text-sm text-gray-400">All students</span>
-          </div>
-        </div>
-      </div>
     </div>
   );
 };
 
+
+const ReactApexChart = dynamic(() => import('react-apexcharts') as any, { ssr: false });
+
 const ProjectsGraph = ({ data }: { data: UserData['progress'] }) => {
-  const [viewMode, setViewMode] = useState<'all' | 'pass' | 'fail'>('all');
-  const isDark = true;
-  
-  const width = 300;
-  const height = 300;
-  const radius = Math.min(width, height) / 3;
-  const centerX = width / 2;
-  const centerY = height / 2;
+  const [chartOptions, setChartOptions] = useState<any>(null);
+  const [chartData, setChartData] = useState<number[]>([]);
 
-  const passProjects = data.filter(item => item.grade >= 1);
-  const failProjects = data.filter(item => item.grade < 1);
-  const passCount = passProjects.length;
-  const failCount = failProjects.length;
-  const total = passCount + failCount;
+  useEffect(() => {
+    if (typeof window !== 'undefined') {
+      const validProjects = data.filter(item => item && item.grade !== null);
+      const passCount = validProjects.filter(item => item.grade >= 1).length;
+      const failCount = validProjects.filter(item => item.grade < 1).length;
 
-  const getDisplayData = () => {
-    switch(viewMode) {
-      case 'pass':
-        return passProjects;
-      case 'fail':
-        return failProjects;
-      default:
-        return data;
+      setChartData([passCount, failCount]);
+
+      setChartOptions({
+        chart: {
+          type: 'donut',
+          background: 'transparent',
+        },
+        labels: ['Pass', 'Fail'],
+        colors: ['#34D399', '#F87171'],
+        legend: {
+          position: 'bottom',
+          labels: {
+            colors: '#A0AEC0',
+          },
+        },
+        tooltip: {
+          enabled: true,
+          theme: 'dark',
+          y: {
+            formatter: (value: number) => `${value} Projects`,
+          },
+        },
+        plotOptions: {
+          pie: {
+            donut: {
+              size: '60%',
+              labels: {
+                show: true,
+                total: {
+                  show: true,
+                  label: 'Total',
+                  formatter: () => `${passCount + failCount} Projects`,
+                },
+              },
+            },
+          },
+        },
+      });
     }
-  };
+  }, [data]);
 
-  const passAngle = (passCount / total) * 360;
-  const failAngle = (failCount / total) * 360;
-
-  const createArc = (startAngle: number, endAngle: number) => {
-    const start = polarToCartesian(centerX, centerY, radius, -startAngle);
-    const end = polarToCartesian(centerX, centerY, radius, -endAngle);
-    const largeArcFlag = endAngle - startAngle <= 180 ? "0" : "1";
-    return [
-      "M", centerX, centerY,
-      "L", start.x, start.y,
-      "A", radius, radius, 0, largeArcFlag, 0, end.x, end.y,
-      "Z"
-    ].join(" ");
-  };
-
-  const displayData = getDisplayData();
-  const averageGrade = displayData.length > 0 
-    ? (displayData.reduce((sum, item) => sum + item.grade, 0) / displayData.length).toFixed(2)
-    : "0.00";
+  if (!chartOptions || chartData.length === 0) return null;
 
   return (
     <div className="bg-gray-800 p-6 rounded-lg shadow-lg">
-      <div className="flex justify-between items-center mb-6">
-        <h3 className="text-lg font-semibold text-white">Project Results</h3>
-        <div className="flex space-x-2">
-          <button
-            onClick={() => setViewMode('all')}
-            className={`px-3 py-1 rounded-md text-sm transition-all duration-200 ${
-              viewMode === 'all'
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-            }`}
-          >
-            All
-          </button>
-          <button
-            onClick={() => setViewMode('pass')}
-            className={`px-3 py-1 rounded-md text-sm transition-all duration-200 ${
-              viewMode === 'pass'
-                ? 'bg-emerald-600 text-white'
-                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-            }`}
-          >
-            Passes
-          </button>
-          <button
-            onClick={() => setViewMode('fail')}
-            className={`px-3 py-1 rounded-md text-sm transition-all duration-200 ${
-              viewMode === 'fail'
-                ? 'bg-red-600 text-white'
-                : 'bg-gray-700 text-gray-300 hover:bg-gray-600'
-            }`}
-          >
-            Fails
-          </button>
-        </div>
-      </div>
-
-      <div className="flex items-center justify-center">
-        <svg width={width} height={height} className="w-full h-auto">
-          <g className="transform transition-transform duration-500 ease-in-out">
-            {viewMode === 'all' && (
-              <>
-                <path
-                  d={createArc(0, passAngle)}
-                  fill="#34D399"
-                  className="transition-all duration-500"
-                >
-                  <animate
-                    attributeName="opacity"
-                    from="0"
-                    to="1"
-                    dur="0.5s"
-                    fill="freeze"
-                  />
-                </path>
-                <path
-                  d={createArc(passAngle, 360)}
-                  fill="#F87171"
-                  className="transition-all duration-500"
-                >
-                  <animate
-                    attributeName="opacity"
-                    from="0"
-                    to="1"
-                    dur="0.5s"
-                    fill="freeze"
-                  />
-                </path>
-              </>
-            )}
-            {viewMode === 'pass' && (
-              <circle
-                cx={centerX}
-                cy={centerY}
-                r={radius}
-                fill="#34D399"
-                className="transition-all duration-500"
-              >
-                <animate
-                  attributeName="r"
-                  from="0"
-                  to={radius}
-                  dur="0.5s"
-                  fill="freeze"
-                />
-              </circle>
-            )}
-            {viewMode === 'fail' && (
-              <circle
-                cx={centerX}
-                cy={centerY}
-                r={radius}
-                fill="#F87171"
-                className="transition-all duration-500"
-              >
-                <animate
-                  attributeName="r"
-                  from="0"
-                  to={radius}
-                  dur="0.5s"
-                  fill="freeze"
-                />
-              </circle>
-            )}
-            <circle
-              cx={centerX}
-              cy={centerY}
-              r={radius / 2}
-              fill="#1F2937"
-              className="transition-all duration-500"
-            >
-              <animate
-                attributeName="r"
-                from="0"
-                to={radius / 2}
-                dur="0.5s"
-                fill="freeze"
-              />
-            </circle>
-          </g>
-        </svg>
-      </div>
-
-      <div className="mt-6 grid grid-cols-2 gap-6 text-sm">
-        <div className="bg-gray-900/50 p-3 rounded-lg">
-          <div className="flex items-center mb-2">
-            <div className="w-3 h-3 rounded-full bg-emerald-500 mr-2"></div>
-            <span className="text-gray-300">Pass</span>
-          </div>
-          <div className="text-emerald-400 font-semibold">{passCount} Projects</div>
-          {viewMode === 'pass' && (
-            <div className="text-gray-400 text-xs mt-1">Avg Grade: {averageGrade}</div>
-          )}
-        </div>
-        <div className="bg-gray-900/50 p-3 rounded-lg">
-          <div className="flex items-center mb-2">
-            <div className="w-3 h-3 rounded-full bg-red-500 mr-2"></div>
-            <span className="text-gray-300">Fail</span>
-          </div>
-          <div className="text-red-400 font-semibold">{failCount} Projects</div>
-          {viewMode === 'fail' && (
-            <div className="text-gray-400 text-xs mt-1">Avg Grade: {averageGrade}</div>
-          )}
-        </div>
-      </div>
+      <h3 className="text-lg font-semibold text-white mb-4">Project Results</h3>
+      <ReactApexChart
+        options={chartOptions}
+        series={chartData}
+        type="donut"
+        height={350}
+      />
     </div>
   );
 };
@@ -474,50 +318,6 @@ const SkillsChart = ({ data }: { data: any }) => {
   );
 };
 
-// Draggable Section Component
-const DraggableSection = ({ id, children }: { id: string; children: React.ReactNode }) => {
-  const [position, setPosition] = useState({ x: 0, y: 0 });
-  const [isDragging, setIsDragging] = useState(false);
-  const dragStart = useRef<{ x: number; y: number } | null>(null);
-
-  const handleMouseDown = (e: React.MouseEvent) => {
-    setIsDragging(true);
-    dragStart.current = {
-      x: e.clientX - position.x,
-      y: e.clientY - position.y,
-    };
-  };
-
-  const handleMouseMove = (e: React.MouseEvent) => {
-    if (isDragging && dragStart.current) {
-      setPosition({
-        x: e.clientX - dragStart.current.x,
-        y: e.clientY - dragStart.current.y,
-      });
-    }
-  };
-
-  const handleMouseUp = () => {
-    setIsDragging(false);
-    dragStart.current = null;
-  };
-
-  return (
-    <div
-      className={`relative ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
-      style={{
-        transform: `translate(${position.x}px, ${position.y}px)`,
-        zIndex: isDragging ? 1000 : 1,
-      }}
-      onMouseDown={handleMouseDown}
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseUp}
-    >
-      {children}
-    </div>
-  );
-};
 
 // Helper function for pie chart
 const polarToCartesian = (centerX: number, centerY: number, radius: number, angleInDegrees: number) => {
@@ -535,6 +335,11 @@ export default function Home() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
+  const handleSignOut = () => {
+    sessionStorage.clear(); // Clear session storage
+    window.location.href = '/login'; // Redirect to login page
+  };
+
   useEffect(() => {
     const fetchData = async () => {
       try {
@@ -545,6 +350,7 @@ export default function Home() {
           return;
         }
         const data = await getUserData(token);
+        console.log('Fetched user data:', data); // Log the fetched user data
         setUserData(data);
 
         // Fetch skills data
@@ -595,6 +401,7 @@ export default function Home() {
 
         if (!response.ok) throw new Error('Failed to fetch skills data');
         const skillsResult = await response.json();
+        console.log('Fetched skills data:', skillsResult); // Log the fetched skills data
         setSkillsData(skillsResult.data);
 
       } catch (err: any) {
@@ -644,7 +451,7 @@ export default function Home() {
   );
 
   // Safely calculate total XP
-  const xpData = userData.xp_view || [];
+  const xpData = userData.transaction || [];
   const totalXP = xpData.reduce((sum, t) => sum + t.amount, 0);
 
   return (
@@ -654,7 +461,12 @@ export default function Home() {
           <h1 className="text-3xl font-bold text-white mb-4">
             Welcome, {userData.user.firstName || 'User'}
           </h1>
-          
+          <button 
+            onClick={handleSignOut} 
+            className="bg-blue-500 text-white px-4 py-2 rounded mb-4 hover:bg-blue-600"
+          >
+            Sign Out
+          </button>
           {/* User Details Box */}
           <div className="bg-gray-800 rounded-lg p-6 shadow-lg mb-8">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -713,17 +525,11 @@ export default function Home() {
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            <DraggableSection id="xp-progress">
-              <XPProgressGraph data={xpData} />
-            </DraggableSection>
+            <XPProgressGraph data={xpData} />
             
-            <DraggableSection id="project-results">
-              <ProjectsGraph data={userData.progress} />
-            </DraggableSection>
+            <ProjectsGraph data={userData.progress} />
             
-            <DraggableSection id="skills">
-              <SkillsChart data={skillsData} />
-            </DraggableSection>
+            <SkillsChart data={skillsData} />
           </div>
         </div>
       </div>
