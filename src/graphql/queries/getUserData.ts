@@ -28,6 +28,7 @@ export interface XPView {
   userId: string;
   amount: number;
   path: string;
+  createdAt: string;
   __typename: string;
 }
 

@@ -1,222 +1,223 @@
 import { useEffect, useState, useRef } from "react";
 import { useRouter } from "next/router";
 import { getUserData, UserData } from "../graphql/queries/getUserData";
+import XPProgressGraph from "../pages/XPProgressGraph";
+import ProjectsGraph from "../pages/ProjectGraph";
 import dynamic from 'next/dynamic';
-
+import Chart from 'react-apexcharts';
 
 
 // SVG Graph Components
-const XPProgressGraph = ({ data }: { data?: UserData['transaction'] }) => {
-  const [timeRange, setTimeRange] = useState('6m');
+// const XPProgressGraph = ({ data }: { data?: UserData['transaction'] }) => {
+//   const [timeRange, setTimeRange] = useState('6m');
 
-  if (!data || !Array.isArray(data) || data.length === 0) {
-    console.log('No XP data available');
-    return null;
-  }
+//   if (!data || !Array.isArray(data) || data.length === 0) {
+//     console.log('No XP data available');
+//     return null;
+//   }
 
-  // Filter data based on time range
-  const filterDataByTimeRange = (data: any[], range: string) => {
-    const now = new Date();
-    const ranges = {
-      '1m': 30,
-      '3m': 90,
-      '6m': 180,
-      '1y': 365,
-    };
-    const daysToShow = ranges[range as keyof typeof ranges] || 180;
-    const cutoffDate = new Date(now.setDate(now.getDate() - daysToShow));
-    return data.filter(item => new Date(item.createdAt) >= cutoffDate);
-  };
+//   // Filter data based on time range
+//   const filterDataByTimeRange = (data: any[], range: string) => {
+//     const now = new Date();
+//     const ranges = {
+//       '1m': 30,
+//       '3m': 90,
+//       '6m': 180,
+//       '1y': 365,
+//     };
+//     const daysToShow = ranges[range as keyof typeof ranges] || 180;
+//     const cutoffDate = new Date(now.setDate(now.getDate() - daysToShow));
+//     return data.filter(item => new Date(item.createdAt) >= cutoffDate);
+//   };
 
-  const filteredData = filterDataByTimeRange(data, timeRange);
+//   const filteredData = filterDataByTimeRange(data, timeRange);
 
-  const chartData = filteredData.map(item => ({
-    x: new Date(item.createdAt).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-    }),
-    y: item.amount,
-  }));
+//   const chartData = filteredData.map(item => ({
+//     x: new Date(item.createdAt).toLocaleDateString('en-US', {
+//       month: 'short',
+//       day: 'numeric',
+//     }),
+//     y: item.amount,
+//   }));
 
-  const maxXP = Math.max(...filteredData.map(item => item.amount)) || 0;
-  const totalXP = filteredData[filteredData.length - 1]?.amount || 0;
+//   const maxXP = Math.max(...filteredData.map(item => item.amount)) || 0;
+//   const totalXP = filteredData[filteredData.length - 1]?.amount || 0;
 
-  const chartOptions = {
-    chart: {
-      type: 'line',
-      toolbar: {
-        show: false,
-      },
-      zoom: {
-        enabled: false,
-      },
-    },
-    stroke: {
-      curve: 'smooth',
-      width: 2,
-    },
-    markers: {
-      size: 6, // Size of the hover dots
-      colors: ['#A78BFA'], // Color of the dots
-      strokeColors: '#8B5CF6', // Outline color of the dots
-      strokeWidth: 2,
-      hover: {
-        size: 8, // Dot size when hovered
-      },
-    },
-    colors: ['#A78BFA'],
-    xaxis: {
-      type: 'category',
-      categories: chartData.map(dataPoint => dataPoint.x),
-      labels: {
-        style: {
-          colors: '#A0AEC0',
-        },
-      },
-    },
-    yaxis: {
-      labels: {
-        style: {
-          colors: '#A0AEC0',
-        },
-      },
-    },
-    tooltip: {
-      enabled: true, // Enable tooltips
-      theme: 'dark', // Dark theme for tooltips
-      style: {
-        fontSize: '12px',
-        fontFamily: 'Arial, sans-serif',
-        color: '#ffffff',
-      },
-      x: {
-        show: true,
-        format: 'MMM dd', // Format for x-axis values in tooltips
-      },
-      y: {
-        formatter: (value: number) => `${value} XP`, // Customize y-axis tooltip values
-      },
-      marker: {
-        show: true, // Show marker dots in tooltips
-      },
-    },
-    grid: {
-      borderColor: '#2D3748',
-      strokeDashArray: 4,
-    },
-    dataLabels: {
-      enabled: false,
-    },
-    title: {
-      text: `Total XP: ${totalXP}`,
-      align: 'left',
-      style: {
-        color: '#A0AEC0',
-        fontSize: '14px',
-      },
-    },
-  };
+//   const chartOptions = {
+//     chart: {
+//       type: 'line',
+//       toolbar: {
+//         show: false,
+//       },
+//       zoom: {
+//         enabled: false,
+//       },
+//     },
+//     stroke: {
+//       curve: 'smooth',
+//       width: 2,
+//     },
+//     markers: {
+//       size: 6, // Size of the hover dots
+//       colors: ['#A78BFA'], // Color of the dots
+//       strokeColors: '#8B5CF6', // Outline color of the dots
+//       strokeWidth: 2,
+//       hover: {
+//         size: 8, // Dot size when hovered
+//       },
+//     },
+//     colors: ['#A78BFA'],
+//     xaxis: {
+//       type: 'category',
+//       categories: chartData.map(dataPoint => dataPoint.x),
+//       labels: {
+//         style: {
+//           colors: '#A0AEC0',
+//         },
+//       },
+//     },
+//     yaxis: {
+//       labels: {
+//         style: {
+//           colors: '#A0AEC0',
+//         },
+//       },
+//     },
+//     tooltip: {
+//       enabled: true, // Enable tooltips
+//       theme: 'dark', // Dark theme for tooltips
+//       style: {
+//         fontSize: '12px',
+//         fontFamily: 'Arial, sans-serif',
+//         color: '#ffffff',
+//       },
+//       x: {
+//         show: true,
+//         format: 'MMM dd', // Format for x-axis values in tooltips
+//       },
+//       y: {
+//         formatter: (value: number) => `${value} XP`, // Customize y-axis tooltip values
+//       },
+//       marker: {
+//         show: true, // Show marker dots in tooltips
+//       },
+//     },
+//     grid: {
+//       borderColor: '#2D3748',
+//       strokeDashArray: 4,
+//     },
+//     dataLabels: {
+//       enabled: false,
+//     },
+//     title: {
+//       text: `Total XP: ${totalXP}`,
+//       align: 'left',
+//       style: {
+//         color: '#A0AEC0',
+//         fontSize: '14px',
+//       },
+//     },
+//   };
   
   
 
-  return (
-    <div className="bg-gray-800 p-6 rounded-lg shadow-lg">
-      <div className="flex justify-between items-center mb-6">
-        <h3 className="text-lg font-semibold text-white">XP Progression</h3>
-        <div className="flex items-center space-x-2">
-          <span className="text-sm text-gray-400">XP growth per day for the</span>
-          <select
-            value={timeRange}
-            onChange={e => setTimeRange(e.target.value)}
-            className="bg-gray-700 text-white text-sm rounded-md px-2 py-1 border-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="1m">last month</option>
-            <option value="3m">last 3 months</option>
-            <option value="6m">last 6 months</option>
-            <option value="1y">last year</option>
-          </select>
-        </div>
-      </div>
+//   return (
+//     <div className="bg-gray-800 p-6 rounded-lg shadow-lg">
+//       <div className="flex justify-between items-center mb-6">
+//         <h3 className="text-lg font-semibold text-white">XP Progression</h3>
+//         <div className="flex items-center space-x-2">
+//           <span className="text-sm text-gray-400">XP growth per day for the</span>
+//           <select
+//             value={timeRange}
+//             onChange={e => setTimeRange(e.target.value)}
+//             className="bg-gray-700 text-white text-sm rounded-md px-2 py-1 border-none focus:ring-2 focus:ring-blue-500"
+//           >
+//             <option value="1m">last month</option>
+//             <option value="3m">last 3 months</option>
+//             <option value="6m">last 6 months</option>
+//             <option value="1y">last year</option>
+//           </select>
+//         </div>
+//       </div>
+//       <ReactApexChart
+//         options={chartOptions}
+//         series={[{ name: 'XP', data: chartData.map(dataPoint => dataPoint.y) }]}
+//         type="line"
+//         height={400}
+//       />
 
-      <ReactApexChart
-        options={chartOptions} as ApexOptions
-        series={[{ name: 'XP', data: chartData.map(dataPoint => dataPoint.y) }]}
-        type="line"
-        height={400}
-/>
-
-    </div>
-  );
-};
+//     </div>
+//   );
+// };
 
 
-const ReactApexChart = dynamic(() => import('react-apexcharts') as any, { ssr: false });
+// const ReactApexChart = dynamic(() => import('react-apexcharts') as any, { ssr: false });
 
-const ProjectsGraph = ({ data }: { data: UserData['progress'] }) => {
-  const [chartOptions, setChartOptions] = useState<any>(null);
-  const [chartData, setChartData] = useState<number[]>([]);
+// const ProjectsGraph = ({ data }: { data: UserData['progress'] }) => {
+//   const [chartOptions, setChartOptions] = useState<any>(null);
+//   const [chartData, setChartData] = useState<number[]>([]);
 
-  useEffect(() => {
-    if (typeof window !== 'undefined') {
-      const validProjects = data.filter(item => item && item.grade !== null);
-      const passCount = validProjects.filter(item => item.grade >= 1).length;
-      const failCount = validProjects.filter(item => item.grade < 1).length;
+//   useEffect(() => {
+//     if (typeof window !== 'undefined') {
+//       const validProjects = data.filter(item => item && item.grade !== null);
+//       const passCount = validProjects.filter(item => item.grade >= 1).length;
+//       const failCount = validProjects.filter(item => item.grade < 1).length;
 
-      setChartData([passCount, failCount]);
+//       setChartData([passCount, failCount]);
 
-      setChartOptions({
-        chart: {
-          type: 'donut',
-          background: 'transparent',
-        },
-        labels: ['Pass', 'Fail'],
-        colors: ['#34D399', '#F87171'],
-        legend: {
-          position: 'bottom',
-          labels: {
-            colors: '#A0AEC0',
-          },
-        },
-        tooltip: {
-          enabled: true,
-          theme: 'dark',
-          y: {
-            formatter: (value: number) => `${value} Projects`,
-          },
-        },
-        plotOptions: {
-          pie: {
-            donut: {
-              size: '60%',
-              labels: {
-                show: true,
-                total: {
-                  show: true,
-                  label: 'Total',
-                  formatter: () => `${passCount + failCount} Projects`,
-                },
-              },
-            },
-          },
-        },
-      });
-    }
-  }, [data]);
+//       setChartOptions({
+//         chart: {
+//           type: 'donut',
+//           background: 'transparent',
+//         },
+//         labels: ['Pass', 'Fail'],
+//         colors: ['#34D399', '#F87171'],
+//         legend: {
+//           position: 'bottom',
+//           labels: {
+//             colors: '#A0AEC0',
+//           },
+//         },
+//         tooltip: {
+//           enabled: true,
+//           theme: 'dark',
+//           y: {
+//             formatter: (value: number) => `${value} Projects`,
+//           },
+//         },
+//         plotOptions: {
+//           pie: {
+//             donut: {
+//               size: '60%',
+//               labels: {
+//                 show: true,
+//                 total: {
+//                   show: true,
+//                   label: 'Total',
+//                   formatter: () => `${passCount + failCount} Projects`,
+//                 },
+//               },
+//             },
+//           },
+//         },
+//       });
+//     }
+//   }, [data]);
 
-  if (!chartOptions || chartData.length === 0) return null;
+//   if (!chartOptions || chartData.length === 0) return null;
 
-  return (
-    <div className="bg-gray-800 p-6 rounded-lg shadow-lg">
-      <h3 className="text-lg font-semibold text-white mb-4">Project Results</h3>
-      <ReactApexChart
-        options={chartOptions}
-        series={chartData}
-        type="donut"
-        height={350}
-      />
-    </div>
-  );
-};
+//   return (
+//     <div className="bg-gray-800 p-6 rounded-lg shadow-lg">
+//       <h3 className="text-lg font-semibold text-white mb-4">Project Results</h3>
+//       <ReactApexChart
+//         options={chartOptions}
+//         series={chartData}
+//         type="donut"
+//         height={350}
+//       />
+//     </div>
+//   );
+// };
 
 // Skill Chart Component
 const SkillsChart = ({ data }: { data: any }) => {
